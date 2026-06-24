@@ -1,27 +1,41 @@
 import { useState, useEffect, useContext, createContext, useReducer, useRef } from "react";
-
+ 
 // ─── Context ──────────────────────────────────────────────────────────────────
 const CartContext = createContext();
 const UserContext = createContext();
-
+const NavContext = createContext();
+ 
+const countItems = items => items.reduce((s, i) => s + i.qty, 0);
+ 
 const cartReducer = (state, action) => {
   switch (action.type) {
     case "ADD_ITEM": {
       const exists = state.items.find(i => i.id === action.item.id);
-      return {
-        ...state,
-        items: exists
-          ? state.items.map(i => i.id === action.item.id ? { ...i, qty: i.qty + 1 } : i)
-          : [...state.items, { ...action.item, qty: 1 }],
-        count: state.count + 1,
-        lastAdded: action.item.id,
-      };
+      const items = exists
+        ? state.items.map(i => i.id === action.item.id ? { ...i, qty: i.qty + 1 } : i)
+        : [...state.items, { ...action.item, qty: 1 }];
+      return { ...state, items, count: countItems(items), lastAdded: action.item.id };
     }
+    case "INC": {
+      const items = state.items.map(i => i.id === action.id ? { ...i, qty: i.qty + 1 } : i);
+      return { ...state, items, count: countItems(items) };
+    }
+    case "DEC": {
+      const items = state.items
+        .map(i => i.id === action.id ? { ...i, qty: i.qty - 1 } : i)
+        .filter(i => i.qty > 0);
+      return { ...state, items, count: countItems(items) };
+    }
+    case "REMOVE_ITEM": {
+      const items = state.items.filter(i => i.id !== action.id);
+      return { ...state, items, count: countItems(items) };
+    }
+    case "CLEAR_CART": return { ...state, items: [], count: 0, lastAdded: null };
     case "CLEAR_LAST": return { ...state, lastAdded: null };
     default: return state;
   }
 };
-
+ 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 // Hero slides — rendered as rich SVG/CSS banners (no external image blocking)
 const SLIDES = [
@@ -67,7 +81,7 @@ const SLIDES = [
   },
 ];
 const SUBNAV = ["Today's Deals","Customer Service","Registry","Gift Cards","Sell","Buy Again","Prime","Browsing History"];
-
+ 
 const PRODUCTS = [
   { id:1, section:"Bestsellers in Electronics", title:"Apple AirPods Pro (2nd Gen) – Active Noise Cancelling, Transparency Mode, H2 Chip", price:189.00, oldPrice:249.00, prime:true, rating:4.7, reviews:92483, badge:"Best Seller",
     img:"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQkfgGOqWWb6x7wV8I8N9MD1jx-dWc9OrKh8w&s", delivery:"Get it by Tomorrow" },
@@ -94,7 +108,7 @@ const PRODUCTS = [
   { id:12, section:"Home & Kitchen Picks", title:"KitchenAid Artisan Tilt-Head Stand Mixer with Pouring Shield, 5-Quart, Empire Red", price:279.99, oldPrice:449.99, prime:true, rating:4.8, reviews:43921, badge:"Best Seller",
     img:"https://images.unsplash.com/photo-1594736797933-d0501ba2fe65?w=500&q=80", delivery:"Get it by Tomorrow" },
 ];
-
+ 
 const PANELS = [
   { title:"Shop Gaming", link:"See all offers", items:[
     { name:"Headsets", img:"https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&q=80" },
@@ -116,7 +130,7 @@ const PANELS = [
     { name:"Travel", img:"https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=300&q=80" },
   ]},
 ];
-
+ 
 // ─── Stars ────────────────────────────────────────────────────────────────────
 const Stars = ({ rating }) => (
   <span style={{ display:"flex", alignItems:"center", gap:1 }}>
@@ -137,7 +151,7 @@ const Stars = ({ rating }) => (
     })}
   </span>
 );
-
+ 
 // ─── Prime SVG ────────────────────────────────────────────────────────────────
 const Prime = () => (
   <svg width="47" height="16" viewBox="0 0 47 16">
@@ -145,7 +159,7 @@ const Prime = () => (
     <text x="23.5" y="11.5" textAnchor="middle" fill="white" fontSize="9" fontWeight="800" fontFamily="Arial" letterSpacing="0.8">prime</text>
   </svg>
 );
-
+ 
 // ─── Product Card ─────────────────────────────────────────────────────────────
 const ProductCard = ({ product }) => {
   const { dispatch, state } = useContext(CartContext);
@@ -155,16 +169,16 @@ const ProductCard = ({ product }) => {
   const disc = product.oldPrice ? Math.round((1 - product.price / product.oldPrice) * 100) : 0;
   const intPart = Math.floor(product.price);
   const decPart = product.price.toFixed(2).split(".")[1];
-
+ 
   const handleAdd = e => {
     e.stopPropagation();
     dispatch({ type:"ADD_ITEM", item:product });
     setAdded(true);
     setTimeout(() => { setAdded(false); dispatch({ type:"CLEAR_LAST" }); }, 1800);
   };
-
+ 
   const BADGE_COLORS = { "Best Seller":"#c45500", "Amazon's Choice":"#007185", "Deal of the Day":"#cc0c39", "Limited Time Deal":"#cc0c39", "Deal":"#cc0c39" };
-
+ 
   return (
     <div style={{
       background:"#fff", borderRadius:4, overflow:"visible", display:"flex", flexDirection:"column",
@@ -181,7 +195,7 @@ const ProductCard = ({ product }) => {
           {product.badge}
         </div>
       )}
-
+ 
       {/* Image */}
       <div style={{ height:190, background:"#fff", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px 16px", position:"relative", overflow:"hidden" }}>
         {!imgErr
@@ -196,19 +210,19 @@ const ProductCard = ({ product }) => {
           <div style={{ position:"absolute", top:8, right:8, background:"#cc0c39", color:"#fff", borderRadius:"50%", width:40, height:40, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10.5, fontWeight:800, textAlign:"center", lineHeight:1.1 }}>-{disc}%</div>
         )}
       </div>
-
+ 
       <div style={{ padding:"8px 14px 14px", flex:1, display:"flex", flexDirection:"column", gap:4 }}>
         <p style={{ fontSize:13.5, color:"#0f1111", lineHeight:1.4, overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical", minHeight:38, margin:0 }}>
           {product.title}
         </p>
-
+ 
         <div style={{ display:"flex", alignItems:"center", gap:5 }}>
           <Stars rating={product.rating}/>
           <span style={{ fontSize:12, color:"#007185", textDecoration:"underline", cursor:"pointer" }}>
             {product.reviews.toLocaleString()}
           </span>
         </div>
-
+ 
         <div style={{ display:"flex", alignItems:"flex-start", gap:2, flexWrap:"wrap" }}>
           <span style={{ fontSize:13, color:"#0f1111", lineHeight:1 }}>$</span>
           <span style={{ fontSize:24, fontWeight:400, color:"#0f1111", lineHeight:1, letterSpacing:-1 }}>{intPart}</span>
@@ -219,16 +233,16 @@ const ProductCard = ({ product }) => {
             </span>
           )}
         </div>
-
+ 
         {product.prime && (
           <div style={{ display:"flex", alignItems:"center", gap:5 }}>
             <Prime/>
             <span style={{ fontSize:11.5, color:"#007600" }}>FREE delivery</span>
           </div>
         )}
-
+ 
         <p style={{ fontSize:11.5, color:"#007600", margin:0 }}>{product.delivery}</p>
-
+ 
         <button onClick={handleAdd} style={{
           marginTop:6, width:"100%", padding:"8px 0",
           background: added ? "linear-gradient(to bottom,#6dbf67,#5ca85a)" : "linear-gradient(to bottom,#f7dfa5,#f0c14b)",
@@ -244,7 +258,7 @@ const ProductCard = ({ product }) => {
     </div>
   );
 };
-
+ 
 // ─── Hero Carousel (CSS gradient banners — no external image deps) ─────────────
 const SLIDE_ICONS = [
   // Electronics — circuit-board pattern
@@ -287,7 +301,7 @@ const SLIDE_ICONS = [
     </svg>
   ),
 ];
-
+ 
 const Hero = () => {
   const [idx, setIdx] = useState(0);
   const timer = useRef(null);
@@ -296,7 +310,7 @@ const Hero = () => {
   const go = d => { setIdx(i=>(i+d+SLIDES.length)%SLIDES.length); reset(); };
   const s = SLIDES[idx];
   const Icon = SLIDE_ICONS[idx];
-
+ 
   return (
     <div style={{ position:"relative", overflow:"hidden", lineHeight:0 }}>
       <div style={{ height:460, position:"relative" }}>
@@ -314,7 +328,7 @@ const Hero = () => {
             transition: "opacity .8s ease",
           }}/>
         ))}
-
+ 
         {/* Decorative SVG */}
         <div style={{ position:"absolute", inset:0, overflow:"hidden" }}>
           <Icon accent={s.accent}/>
@@ -322,7 +336,7 @@ const Hero = () => {
           <div style={{ position:"absolute", width:300, height:300, borderRadius:"50%", background:`radial-gradient(circle, ${s.accent}22 0%, transparent 70%)`, top:-80, right:-60, pointerEvents:"none" }}/>
           <div style={{ position:"absolute", width:180, height:180, borderRadius:"50%", background:`radial-gradient(circle, ${s.accent}15 0%, transparent 70%)`, bottom:60, left:40, pointerEvents:"none" }}/>
         </div>
-
+ 
         {/* Text content */}
         <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", justifyContent:"center", padding:"0 80px", pointerEvents:"none" }}>
           <div style={{ fontSize:52, marginBottom:8, filter:"drop-shadow(0 2px 8px rgba(0,0,0,.4))" }}>{s.emoji}</div>
@@ -335,11 +349,11 @@ const Hero = () => {
             >{s.cta} →</button>
           </div>
         </div>
-
+ 
         {/* Edge gradients + bottom fade */}
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(to right,rgba(0,0,0,.18) 0%,transparent 30%,transparent 70%,rgba(0,0,0,.18) 100%)", pointerEvents:"none" }}/>
         <div style={{ position:"absolute", bottom:0, left:0, right:0, height:160, background:"linear-gradient(to bottom,transparent,#e3e6e6)", pointerEvents:"none" }}/>
-
+ 
         {/* Arrows */}
         {[-1,1].map(d=>(
           <button key={d} onClick={()=>go(d)} style={{
@@ -353,7 +367,7 @@ const Hero = () => {
             onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.82)"}
           >{d===-1?"❮":"❯"}</button>
         ))}
-
+ 
         {/* Dots */}
         <div style={{ position:"absolute", bottom:168, left:"50%", transform:"translateX(-50%)", display:"flex", gap:8, zIndex:5 }}>
           {SLIDES.map((_,i)=>(
@@ -368,7 +382,7 @@ const Hero = () => {
     </div>
   );
 };
-
+ 
 // ─── Deal Panels ──────────────────────────────────────────────────────────────
 const DealPanels = () => {
   const { setUser } = useContext(UserContext);
@@ -409,23 +423,30 @@ const DealPanels = () => {
     </div>
   );
 };
-
+ 
 // ─── Header ───────────────────────────────────────────────────────────────────
 const Header = () => {
   const { state:cart } = useContext(CartContext);
   const { user, setUser } = useContext(UserContext);
+  const { navigate } = useContext(NavContext);
   const [sf, setSf] = useState(false);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
   const [showUser, setShowUser] = useState(false);
   const [bounce, setBounce] = useState(false);
   const prev = useRef(0);
-
+ 
   useEffect(()=>{
     if(cart.count>prev.current){ setBounce(true); setTimeout(()=>setBounce(false),400); }
     prev.current=cart.count;
   },[cart.count]);
-
+ 
+  const doSearch = () => {
+    const trimmed = q.trim();
+    if (trimmed) navigate("search", trimmed);
+    else navigate("home");
+  };
+ 
   const navItem = (top, bot, onClick) => (
     <div onClick={onClick} style={{ padding:"5px 8px", border:"1px solid transparent", borderRadius:2, cursor:"pointer", flexShrink:0 }}
       onMouseEnter={e=>e.currentTarget.style.borderColor="#fff"}
@@ -435,13 +456,13 @@ const Header = () => {
       <div style={{ color:"#fff", fontWeight:700, fontSize:13, whiteSpace:"nowrap" }}>{bot}</div>
     </div>
   );
-
+ 
   return (
     <header style={{ background:"#131921", position:"sticky", top:0, zIndex:200, boxShadow:"0 2px 6px rgba(0,0,0,.6)" }}>
       <div style={{ maxWidth:1500, margin:"0 auto", padding:"0 12px", height:60, display:"flex", alignItems:"center", gap:8 }}>
-
+ 
         {/* Logo */}
-        <div style={{ padding:"5px 8px", border:"1px solid transparent", borderRadius:2, cursor:"pointer", flexShrink:0, lineHeight:1 }}
+        <div onClick={()=>navigate("home")} style={{ padding:"5px 8px", border:"1px solid transparent", borderRadius:2, cursor:"pointer", flexShrink:0, lineHeight:1 }}
           onMouseEnter={e=>e.currentTarget.style.borderColor="#fff"}
           onMouseLeave={e=>e.currentTarget.style.borderColor="transparent"}
         >
@@ -454,7 +475,7 @@ const Header = () => {
             <span style={{ color:"#fff", fontSize:9, fontWeight:700 }}>.in</span>
           </div>
         </div>
-
+ 
         {/* Location */}
         <div style={{ padding:"5px 8px", border:"1px solid transparent", borderRadius:2, cursor:"pointer", flexShrink:0 }}
           onMouseEnter={e=>e.currentTarget.style.borderColor="#fff"}
@@ -466,24 +487,25 @@ const Header = () => {
             <span style={{ color:"#fff", fontSize:13, fontWeight:700 }}>Ghaziabad</span>
           </div>
         </div>
-
+ 
         {/* Search */}
         <div style={{ flex:1, display:"flex", height:40, borderRadius:4, overflow:"hidden", outline:sf?"3px solid #f90":"none", outlineOffset:0, transition:"outline .1s", minWidth:0 }}>
           <select value={cat} onChange={e=>setCat(e.target.value)} style={{ background:"#f3f3f3", border:"none", borderRight:"1px solid #cdcdcd", padding:"0 4px 0 8px", fontSize:12, color:"#333", cursor:"pointer", minWidth:55, maxWidth:75, borderRadius:"4px 0 0 4px" }}>
             {["All","Alexa Skills","Amazon Devices","Appliances","Books","Clothing","Electronics","Fashion","Grocery","Home & Kitchen","Laptops","Mobile Phones","Music","Sports","Toys"].map(c=><option key={c}>{c}</option>)}
           </select>
           <input value={q} onChange={e=>setQ(e.target.value)} onFocus={()=>setSf(true)} onBlur={()=>setSf(false)}
+            onKeyDown={e=>{ if(e.key==="Enter"){ e.preventDefault(); doSearch(); } }}
             placeholder="Search Amazon.in"
             style={{ flex:1, border:"none", outline:"none", padding:"0 12px", fontSize:15, background:"#fff", minWidth:0 }}
           />
-          <button style={{ background:"#febd69", border:"none", padding:"0 14px", cursor:"pointer", flexShrink:0, transition:"background .15s" }}
+          <button onClick={doSearch} style={{ background:"#febd69", border:"none", padding:"0 14px", cursor:"pointer", flexShrink:0, transition:"background .15s" }}
             onMouseEnter={e=>e.currentTarget.style.background="#f3a847"}
             onMouseLeave={e=>e.currentTarget.style.background="#febd69"}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="#333"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
           </button>
         </div>
-
+ 
         {/* Flag */}
         <div style={{ padding:"5px 6px", border:"1px solid transparent", borderRadius:2, cursor:"pointer", flexShrink:0, display:"flex", alignItems:"center", gap:3 }}
           onMouseEnter={e=>e.currentTarget.style.borderColor="#fff"}
@@ -493,7 +515,7 @@ const Header = () => {
           <span style={{ color:"#fff", fontSize:11, fontWeight:700 }}>EN</span>
           <span style={{ color:"#fff", fontSize:9 }}>▾</span>
         </div>
-
+ 
         {/* Account dropdown */}
         <div style={{ position:"relative" }}
           onMouseEnter={()=>setShowUser(true)}
@@ -528,11 +550,11 @@ const Header = () => {
             </div>
           )}
         </div>
-
+ 
         {navItem("Returns","& Orders")}
-
+ 
         {/* Cart */}
-        <div style={{ padding:"4px 8px", border:"1px solid transparent", borderRadius:2, cursor:"pointer", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}
+        <div onClick={()=>navigate("cart")} style={{ padding:"4px 8px", border:"1px solid transparent", borderRadius:2, cursor:"pointer", display:"flex", alignItems:"center", gap:4, flexShrink:0 }}
           onMouseEnter={e=>e.currentTarget.style.borderColor="#fff"}
           onMouseLeave={e=>e.currentTarget.style.borderColor="transparent"}
         >
@@ -558,7 +580,7 @@ const Header = () => {
     </header>
   );
 };
-
+ 
 // ─── SubNav ───────────────────────────────────────────────────────────────────
 const SubNav = () => (
   <nav style={{ background:"#232f3e", overflowX:"auto" }}>
@@ -587,7 +609,7 @@ const SubNav = () => (
     </div>
   </nav>
 );
-
+ 
 // ─── Product Sections ─────────────────────────────────────────────────────────
 const ProductSections = () => {
   const sections = [...new Set(PRODUCTS.map(p=>p.section))];
@@ -610,7 +632,152 @@ const ProductSections = () => {
     </div>
   );
 };
-
+ 
+// ─── Cart Page ────────────────────────────────────────────────────────────────
+const CartLineItem = ({ item }) => {
+  const { dispatch } = useContext(CartContext);
+  const [imgErr, setImgErr] = useState(false);
+  return (
+    <div style={{ display:"flex", gap:16, padding:"18px 0", borderBottom:"1px solid #eee", flexWrap:"wrap" }}>
+      <div style={{ width:130, height:110, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        {!imgErr
+          ? <img src={item.img} alt={item.title} onError={()=>setImgErr(true)} style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain" }}/>
+          : <div style={{ width:70, height:70, background:"#f3f3f3", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", color:"#999", fontSize:10.5 }}>No Image</div>
+        }
+      </div>
+ 
+      <div style={{ flex:"1 1 260px", minWidth:0 }}>
+        <p style={{ fontSize:14.5, color:"#0f1111", margin:"0 0 4px", lineHeight:1.35, cursor:"pointer", overflow:"hidden", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}
+          onMouseEnter={e=>e.currentTarget.style.color="#c45500"}
+          onMouseLeave={e=>e.currentTarget.style.color="#0f1111"}
+        >{item.title}</p>
+        <p style={{ fontSize:12, color:"#007600", margin:"0 0 6px" }}>In stock</p>
+        {item.prime && <div style={{ marginBottom:6 }}><Prime/></div>}
+ 
+        <div style={{ display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", alignItems:"center", border:"1px solid #d5d9d9", borderRadius:20, overflow:"hidden", background:"#f0f2f2" }}>
+            <button onClick={()=>dispatch({ type:"DEC", id:item.id })} aria-label="Decrease quantity" style={{ border:"none", background:"transparent", width:30, height:28, fontSize:16, cursor:"pointer", color:"#0f1111" }}>−</button>
+            <span style={{ minWidth:30, textAlign:"center", fontSize:13.5, fontWeight:700 }}>{item.qty}</span>
+            <button onClick={()=>dispatch({ type:"INC", id:item.id })} aria-label="Increase quantity" style={{ border:"none", background:"transparent", width:30, height:28, fontSize:16, cursor:"pointer", color:"#0f1111" }}>+</button>
+          </div>
+          <span style={{ width:1, height:16, background:"#ccc" }}/>
+          <span onClick={()=>dispatch({ type:"REMOVE_ITEM", id:item.id })} style={{ fontSize:13, color:"#007185", cursor:"pointer", textDecoration:"underline" }}
+            onMouseEnter={e=>e.currentTarget.style.color="#c45500"}
+            onMouseLeave={e=>e.currentTarget.style.color="#007185"}
+          >Delete</span>
+        </div>
+      </div>
+ 
+      <div style={{ textAlign:"right", fontWeight:700, fontSize:15.5, color:"#0f1111", whiteSpace:"nowrap", minWidth:80 }}>
+        ${(item.price * item.qty).toFixed(2)}
+      </div>
+    </div>
+  );
+};
+ 
+const EmptyState = ({ icon, title, sub }) => {
+  const { navigate } = useContext(NavContext);
+  return (
+    <div style={{ maxWidth:760, margin:"40px auto", padding:"48px 24px", background:"#fff", borderRadius:4, boxShadow:"0 2px 5px rgba(0,0,0,.08)", textAlign:"center" }}>
+      <div style={{ fontSize:54, marginBottom:12 }}>{icon}</div>
+      <h2 style={{ fontSize:22, color:"#0f1111", margin:"0 0 8px", fontWeight:700 }}>{title}</h2>
+      <p style={{ fontSize:14, color:"#565959", margin:"0 0 22px" }}>{sub}</p>
+      <button onClick={()=>navigate("home")} style={{
+        padding:"10px 30px", background:"linear-gradient(to bottom,#f7dfa5,#f0c14b)",
+        border:"1px solid #a88734", borderRadius:20, fontSize:14, cursor:"pointer",
+      }}
+        onMouseEnter={e=>e.currentTarget.style.background="linear-gradient(to bottom,#f5d78e,#eeb933)"}
+        onMouseLeave={e=>e.currentTarget.style.background="linear-gradient(to bottom,#f7dfa5,#f0c14b)"}
+      >Continue shopping</button>
+    </div>
+  );
+};
+ 
+const CartPage = () => {
+  const { state, dispatch } = useContext(CartContext);
+  const { navigate } = useContext(NavContext);
+  const [orderPlaced, setOrderPlaced] = useState(false);
+ 
+  const itemCount = countItems(state.items);
+  const subtotal = state.items.reduce((s, i) => s + i.price * i.qty, 0);
+ 
+  if (orderPlaced) {
+    return (
+      <div style={{ maxWidth:760, margin:"40px auto", padding:"48px 24px", background:"#fff", borderRadius:4, boxShadow:"0 2px 5px rgba(0,0,0,.08)", textAlign:"center" }}>
+        <div style={{ fontSize:52, marginBottom:12 }}>✅</div>
+        <h2 style={{ fontSize:23, color:"#0f1111", margin:"0 0 8px", fontWeight:700 }}>Order placed — thank you!</h2>
+        <p style={{ fontSize:14, color:"#565959", margin:"0 0 22px" }}>This is a demo checkout, so no real order was placed.</p>
+        <button onClick={()=>navigate("home")} style={{
+          padding:"10px 30px", background:"linear-gradient(to bottom,#f7dfa5,#f0c14b)",
+          border:"1px solid #a88734", borderRadius:20, fontSize:14, cursor:"pointer",
+        }}>Continue shopping</button>
+      </div>
+    );
+  }
+ 
+  if (state.items.length === 0) {
+    return <EmptyState icon="🛒" title="Your Amazon Cart is empty" sub="Browse today's deals and add something you love."/>;
+  }
+ 
+  return (
+    <div style={{ maxWidth:1100, margin:"0 auto", padding:"20px 16px 60px", display:"flex", gap:16, flexWrap:"wrap", alignItems:"flex-start" }}>
+      <div style={{ flex:"2 1 600px", background:"#fff", borderRadius:4, padding:"16px 20px 4px", boxShadow:"0 2px 5px rgba(0,0,0,.08)" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", borderBottom:"1px solid #ddd", paddingBottom:10 }}>
+          <h1 style={{ fontSize:23, fontWeight:400, color:"#0f1111", margin:0 }}>Shopping Cart</h1>
+          <span style={{ fontSize:13, color:"#565959" }}>Price</span>
+        </div>
+ 
+        {state.items.map(item => <CartLineItem key={item.id} item={item}/>)}
+ 
+        <div style={{ textAlign:"right", padding:"16px 0", fontSize:15, color:"#0f1111" }}>
+          Subtotal ({itemCount} item{itemCount !== 1 ? "s" : ""}): <span style={{ fontWeight:700 }}>${subtotal.toFixed(2)}</span>
+        </div>
+      </div>
+ 
+      <div style={{ flex:"1 1 260px", minWidth:240, background:"#fff", borderRadius:4, padding:"18px 20px", boxShadow:"0 2px 5px rgba(0,0,0,.08)" }}>
+        <p style={{ fontSize:18, color:"#B12704", fontWeight:700, margin:"0 0 14px" }}>
+          Subtotal ({itemCount} item{itemCount !== 1 ? "s" : ""}): ${subtotal.toFixed(2)}
+        </p>
+        <button onClick={()=>setOrderPlaced(true)} style={{
+          width:"100%", padding:10, background:"linear-gradient(to bottom,#f7dfa5,#f0c14b)",
+          border:"1px solid #a88734", borderRadius:20, fontSize:14, cursor:"pointer", fontWeight:400,
+        }}
+          onMouseEnter={e=>e.currentTarget.style.background="linear-gradient(to bottom,#f5d78e,#eeb933)"}
+          onMouseLeave={e=>e.currentTarget.style.background="linear-gradient(to bottom,#f7dfa5,#f0c14b)"}
+        >Proceed to Buy</button>
+        <p style={{ fontSize:11.5, color:"#007600", margin:"10px 0 0", textAlign:"center" }}>FREE delivery on this order</p>
+      </div>
+    </div>
+  );
+};
+ 
+// ─── Search Results Page ───────────────────────────────────────────────────────
+const SearchResultsPage = ({ query }) => {
+  const q = query.trim().toLowerCase();
+  const results = PRODUCTS.filter(p =>
+    p.title.toLowerCase().includes(q) || p.section.toLowerCase().includes(q)
+  );
+ 
+  return (
+    <div style={{ maxWidth:1500, margin:"0 auto", padding:"18px 16px 40px" }}>
+      <p style={{ fontSize:14, color:"#565959", margin:"0 0 16px" }}>
+        {results.length} result{results.length !== 1 ? "s" : ""} for <span style={{ color:"#0f1111", fontWeight:700 }}>"{query}"</span>
+      </p>
+ 
+      {results.length === 0 ? (
+        <EmptyState icon="🔍" title={`No results for "${query}"`} sub="Try checking your spelling or use more general terms."/>
+      ) : (
+        <div style={{ background:"#fff", borderRadius:4, padding:"18px 20px 22px", boxShadow:"0 2px 5px rgba(0,0,0,.08)" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(215px,1fr))", gap:14 }}>
+            {results.map(p => <ProductCard key={p.id} product={p}/>)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+ 
+ 
 // ─── Promo Strip ──────────────────────────────────────────────────────────────
 const PromoStrip = () => (
   <div style={{ background:"#fff", borderTop:"1px solid #ddd", borderBottom:"1px solid #ddd", padding:"12px 0" }}>
@@ -633,7 +800,7 @@ const PromoStrip = () => (
     </div>
   </div>
 );
-
+ 
 // ─── Footer ───────────────────────────────────────────────────────────────────
 const Footer = () => (
   <footer>
@@ -641,7 +808,7 @@ const Footer = () => (
       onMouseEnter={e=>e.currentTarget.style.background="#4a5f75"}
       onMouseLeave={e=>e.currentTarget.style.background="#37475a"}
     ><span style={{ color:"#fff", fontSize:13 }}>Back to top</span></div>
-
+ 
     <div style={{ background:"#232f3e", padding:"36px 16px 28px" }}>
       <div style={{ maxWidth:1200, margin:"0 auto", display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(155px,1fr))", gap:"24px 40px" }}>
         {[
@@ -662,7 +829,7 @@ const Footer = () => (
         ))}
       </div>
     </div>
-
+ 
     <div style={{ background:"#131921", padding:"22px 16px" }}>
       <div style={{ maxWidth:1200, margin:"0 auto", textAlign:"center" }}>
         <div style={{ marginBottom:14, display:"inline-block" }}>
@@ -692,24 +859,40 @@ const Footer = () => (
     </div>
   </footer>
 );
-
+ 
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const [cartState, cartDispatch] = useReducer(cartReducer, { items:[], count:0, lastAdded:null });
   const [user, setUser] = useState(null);
-
+  const [page, setPage] = useState("home");
+  const [searchQuery, setSearchQuery] = useState("");
+ 
+  const navigate = (p, q) => {
+    setPage(p);
+    if (typeof q === "string") setSearchQuery(q);
+    window.scrollTo({ top:0, behavior:"smooth" });
+  };
+ 
   return (
     <CartContext.Provider value={{ state:cartState, dispatch:cartDispatch }}>
       <UserContext.Provider value={{ user, setUser }}>
-        <div style={{ fontFamily:"'Amazon Ember','Helvetica Neue',Arial,sans-serif", background:"#e3e6e6", minHeight:"100vh" }}>
-          <Header/>
-          <SubNav/>
-          <Hero/>
-          <DealPanels/>
-          <PromoStrip/>
-          <ProductSections/>
-          <Footer/>
-        </div>
+        <NavContext.Provider value={{ page, searchQuery, navigate }}>
+          <div style={{ fontFamily:"'Amazon Ember','Helvetica Neue',Arial,sans-serif", background:"#e3e6e6", minHeight:"100vh" }}>
+            <Header/>
+            <SubNav/>
+            {page === "home" && (
+              <>
+                <Hero/>
+                <DealPanels/>
+                <PromoStrip/>
+                <ProductSections/>
+              </>
+            )}
+            {page === "cart" && <CartPage/>}
+            {page === "search" && <SearchResultsPage query={searchQuery}/>}
+            <Footer/>
+          </div>
+        </NavContext.Provider>
       </UserContext.Provider>
     </CartContext.Provider>
   );
